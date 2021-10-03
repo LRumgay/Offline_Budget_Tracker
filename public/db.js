@@ -5,3 +5,48 @@ request.onupgradeneeded = function (event) {
     const db = event.target.result;
     db.createObjectStore("budgetDB", {autoincrement: true});
 };
+
+request.onsuccess = function (event) {
+    db = event.target.result;
+    if (navigator.onLine) {
+        checkDB();
+    }
+};
+
+request.onerror = function (event) {
+    console.log(event.target.errorCode);
+};
+
+function saveRecord (record) {
+    const transaction = db.transaction(["budgetDB"], "readwrite");
+    const store = transaction.objectStore("budgetDB");
+    store.add (record);
+};
+
+function checkDB() {
+    const transaction = db.transaction(["budgetDB"], "readwrite");
+    const store = transaction.objectStore("budgetDB");
+    const getAll = store.getAll();
+
+    getAll.onsuccess = function () {
+        if (getAll.result.length > 0) {
+            fetch("api/transaction", {
+                method: "POST",
+                body: JSON.stringify(getAll.result),
+                headers: {
+                    Accept: "application/json, text/plain, */*",
+                    "Content-Type": "application/json"
+                }
+            })
+
+            .then(response => response.json())
+            .then (() => {
+                const transaction = db.transaction(["budgetDB"], "readwrite");
+                const store = transaction.objectStore("budgetDB");
+                store.clear();
+            });
+        }
+    };
+}
+window.addEventListener('online', checkDB);
+
